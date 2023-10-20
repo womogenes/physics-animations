@@ -34,6 +34,9 @@ let vertices = [
 ].map(([x, y]) => ({ x: x * scaleFactor, y: y * scaleFactor }));
 let bodies = [];
 
+// Recording
+let capture;
+
 // Rendering
 window.setup = () => {
   let canvasSize = 600;
@@ -70,14 +73,23 @@ window.setup = () => {
 
   frameRate(60);
 
-  saveGif('animation.gif', 8 * 60 + 10, {
+  /* saveGif('animation.gif', 8 * 60 + 10, {
     units: 'frames',
-  });
+  }); */
 };
 
 window.draw = () => {
   // Compute
   Engine.update(engine);
+
+  if (frameCount === 1) {
+    capture = new CCapture({
+      format: 'webm',
+      framerate: '60',
+      quality: 'high',
+    });
+    capture.start();
+  }
 
   let startDelay = 10;
   if (frameCount === startDelay) {
@@ -120,6 +132,9 @@ window.draw = () => {
   }
 
   if (frameCount === startDelay + 60 * 7) {
+    console.log('stopped');
+    capture.stop();
+    capture.save();
     noLoop();
     return;
   }
@@ -137,4 +152,6 @@ window.draw = () => {
     }
     endShape(CLOSE);
   });
+
+  capture.capture(document.querySelector('canvas'));
 };
