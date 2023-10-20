@@ -1,12 +1,7 @@
 // module aliases
-const Engine = Matter.Engine,
-  Render = Matter.Render,
-  Runner = Matter.Runner,
-  Bodies = Matter.Bodies,
-  Composite = Matter.Composite;
-Body = Matter.Body;
+const { Engine, Body, Bodies, Composite, Vector } = Matter;
 
-const engine = Engine.create({ gravity: { x: 0, y: 0 } });
+const engine = Engine.create({ gravity: { x: 0, y: 0.15 } });
 
 // Logo specifics
 const colors = [
@@ -19,42 +14,56 @@ const colors = [
 ];
 const sqrt3 = Math.sqrt(3);
 
-const rotate = (x, y, angle) => {
-  // https://en.wikipedia.org/wiki/Rotation_matrix
-  const [cos, sin] = [Math.cos(angle), Math.sin(angle)];
-  return [cos * x - sin * y, sin * x + cos * y];
-};
-
-let scaleFactor = 50;
-let vertices = [
-  [0, 0],
-  [1, sqrt3],
-  [0, 2 * sqrt3],
-  [-1, sqrt3],
-].map(([x, y]) => ({ x: x * scaleFactor, y: y * scaleFactor }));
-let bodies = [];
-
 // Recording
 let capture;
+let canvas;
+
+let bodies = [];
 
 // Rendering
 window.setup = () => {
   let canvasSize = 600;
   createCanvas(canvasSize, canvasSize);
+  canvas = document.querySelector('canvas');
 
   // Create bodies
+  let scaleFactor = 50;
+  let n = 32; // Subdivisions
+  let e1 = Vector.mult(Vector.create(1 / n, sqrt3 / n), scaleFactor);
+  let e2 = Vector.mult(Vector.create(-1 / n, sqrt3 / n), scaleFactor);
+
+  let vertices = [
+    [-1, 0],
+    [0, sqrt3],
+    [1, 0],
+  ].map(([x, y]) => ({ x: (x * scaleFactor) / n, y: (y * scaleFactor) / n }));
+
   for (let i = 0; i < 6; i++) {
-    let body = Bodies.fromVertices(
-      ...rotate(0, scaleFactor * sqrt3, 2 * Math.PI * (i / 6) + Math.PI),
-      vertices,
-      {
-        frictionAir: 0,
-        friction: 0,
-        restitution: 1,
+    for (let x = 0; x < n; x++) {
+      for (let y = 0; y < n; y++) {
+        // Two equilateral triangles
+        for (let j = 0; j < 2; j++) {
+          let pos = Vector.rotate(
+            Vector.add(
+              Vector.add(Vector.mult(e1, x), Vector.mult(e2, y)),
+              Vector.mult(
+                Vector.create(0, j == 0 ? (2 / 3) * sqrt3 : (4 / 3) * sqrt3),
+                scaleFactor / n
+              )
+            ),
+            (2 * Math.PI * i) / 6 + Math.PI
+          );
+          let body = Bodies.fromVertices(pos.x, pos.y, vertices, {
+            frictionAir: 0,
+            friction: 0.01,
+            restitution: 1,
+            render: { fillStyle: colors[i] },
+          });
+          Body.setAngle(body, 2 * Math.PI * (i / 6) + Math.PI * j);
+          bodies.push(body);
+        }
       }
-    );
-    Body.setAngle(body, 2 * Math.PI * (i / 6) + Math.PI);
-    bodies.push(body);
+    }
   }
 
   const wallWidth = 600;
@@ -71,87 +80,66 @@ window.setup = () => {
 
   Composite.add(engine.world, [...bodies, ...walls]);
 
-  frameRate(60);
-
-  /* saveGif('animation.gif', 8 * 60 + 10, {
-    units: 'frames',
-  }); */
+  // frameRate(60);
 };
 
+let endFrame = 60 * 20;
+let startTime;
+let recording = true;
+
+let lastUpdated = null;
+
 window.draw = () => {
-  // Compute
-  Engine.update(engine);
-
   if (frameCount === 1) {
-    capture = new CCapture({
-      format: 'webm',
-      framerate: '60',
-      quality: 'high',
-    });
-    capture.start();
-  }
-
-  let startDelay = 10;
-  if (frameCount === startDelay) {
-    // Add a bit of force
-    let scaleFactor = 0.01;
-    bodies.forEach((body, i) => {
-      let vel = rotate(0, 1, (2 * Math.PI * i) / 6 + Math.PI);
-      Body.setVelocity(body, {
-        x: vel[0] * scaleFactor,
-        y: vel[1] * scaleFactor,
-      });
-    });
-    console.log('started animation');
-  }
-  if (frameCount > startDelay && frameCount < startDelay + 60 * 1) {
-    // Accelerate
-    for (let body of bodies) {
-      Body.setSpeed(body, body.speed * 1.1);
+    if (recording) {
+      capturer = CCapture({ framerate: 60, format: 'webm' });
+      capturer.start();
     }
-    console.log('speeding up');
+    startTime = new Date();
   }
-  if (frameCount === startDelay + 60 * 1) {
-    for (let body of bodies) {
-      Body.setAngularSpeed(body, (Math.random() - 0.5) * 0.01);
+  if (frameCount === endFrame) {
+    if (recording) {
+      capturer.stop();
+      capturer.save();
     }
-  }
-  if (frameCount > startDelay + 60 * 1 && frameCount < startDelay + 60 * 1.5) {
-    for (let body of bodies) {
-      Body.setAngularSpeed(body, body.angularSpeed * 1.08);
-    }
-  }
-
-  if (frameCount > startDelay + 60 * 5) {
-    // Add a bit of force
-    for (let body of bodies) {
-      Body.setSpeed(body, body.speed / 1.05);
-      Body.setAngularSpeed(body, body.angularSpeed / 1.05);
-    }
-    console.log('slowing down');
-  }
-
-  if (frameCount === startDelay + 60 * 7) {
-    console.log('stopped');
-    capture.stop();
-    capture.save();
+    console.log('animation stopped');
     noLoop();
     return;
   }
 
+  // Compute, update according to timestep
+  if (frameCount > 10) {
+    Engine.update(engine, lastUpdated ? Date.now() - lastUpdated : 1000 / 60);
+  }
+  lastUpdated = Date.now();
+
   // Draw
-  background(240);
-  translate(width / 2, height / 2);
+  if (frameCount % (recording ? 1 : 30) === 0) {
+    background(240);
+    translate(width / 2, height / 2);
+    strokeWeight(0.5);
 
-  bodies.forEach((body, i) => {
-    fill(colors[i]);
-    noStroke();
-    beginShape();
-    for (let v of body.vertices) {
-      vertex(v.x, v.y);
-    }
-    endShape(CLOSE);
-  });
+    bodies.forEach((body, i) => {
+      fill(body.render.fillStyle);
+      stroke(body.render.fillStyle);
+      beginShape();
+      for (let v of body.vertices) {
+        vertex(v.x, v.y);
+      }
+      endShape(CLOSE);
+    });
+  }
 
-  capture.capture(document.querySelector('canvas'));
+  let secElapsed = (new Date() - startTime) / 1000;
+  let secETA = ((endFrame - frameCount) * secElapsed) / frameCount;
+  let dateETA = new Date(new Date() * 1 + secETA * 1000);
+  document.querySelector(
+    '#frame-counter'
+  ).innerText = `Frame ${frameCount} | Elapsed: ${secElapsed.toFixed(2)} s | ${(
+    secElapsed / frameCount
+  ).toFixed(2)} s/it | ETA: ${Math.floor(secETA / 60)
+    .toString()
+    .padStart(2, '0')}:${(secETA % 60).toFixed(2).padStart(5, '0')}`;
+
+  if (recording) capturer.capture(canvas);
 };
