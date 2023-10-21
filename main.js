@@ -80,10 +80,12 @@ window.setup = () => {
 
   Composite.add(engine.world, [...bodies, ...walls]);
 
-  // frameRate(60);
+  frameRate(120);
+  pixelDensity(2);
 };
 
-let endFrame = 60 * 20;
+let myFrameRate = 120;
+let endFrame = myFrameRate * 15;
 let startTime;
 let recording = true;
 
@@ -92,7 +94,7 @@ let lastUpdated = null;
 window.draw = () => {
   if (frameCount === 1) {
     if (recording) {
-      capturer = CCapture({ framerate: 60, format: 'webm' });
+      capturer = CCapture({ framerate: myFrameRate, format: 'webm' });
       capturer.start();
     }
     startTime = new Date();
@@ -108,8 +110,8 @@ window.draw = () => {
   }
 
   // Compute, update according to timestep
-  if (frameCount > 10) {
-    Engine.update(engine, lastUpdated ? Date.now() - lastUpdated : 1000 / 60);
+  if (frameCount > myFrameRate * 0.2) {
+    Engine.update(engine, (Date.now() - lastUpdated) * 2);
   }
   lastUpdated = Date.now();
 
@@ -117,7 +119,7 @@ window.draw = () => {
   if (frameCount % (recording ? 1 : 30) === 0) {
     background(240);
     translate(width / 2, height / 2);
-    strokeWeight(0.5);
+    strokeWeight(0.8);
 
     bodies.forEach((body, i) => {
       fill(body.render.fillStyle);
@@ -132,7 +134,6 @@ window.draw = () => {
 
   let secElapsed = (new Date() - startTime) / 1000;
   let secETA = ((endFrame - frameCount) * secElapsed) / frameCount;
-  let dateETA = new Date(new Date() * 1 + secETA * 1000);
   document.querySelector(
     '#frame-counter'
   ).innerText = `Frame ${frameCount} | Elapsed: ${secElapsed.toFixed(2)} s | ${(
