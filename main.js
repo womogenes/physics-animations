@@ -1,7 +1,7 @@
 // module aliases
 const { Engine, Body, Bodies, Composite, Vector } = Matter;
 
-const engine = Engine.create({ gravity: { x: 0, y: 0.05 } });
+const engine = Engine.create({ gravity: { x: 0, y: 0.03 } });
 
 // Logo specifics
 const colors = [
@@ -55,8 +55,9 @@ window.setup = () => {
           );
           let body = Bodies.fromVertices(pos.x, pos.y, vertices, {
             frictionAir: 0,
-            friction: 0.01,
-            restitution: 1,
+            friction: 0,
+            restitution: 0.95,
+            mass: (i + 6) * 1e-4,
             render: { fillStyle: colors[i] },
           });
           Body.setAngle(body, 2 * Math.PI * (i / 6) + Math.PI * j);
@@ -69,7 +70,8 @@ window.setup = () => {
   const wallWidth = 600;
   const wallOps = {
     isStatic: true,
-    restitution: 1,
+    friction: 0,
+    restitution: 0.95,
   };
   const walls = [
     Bodies.rectangle(0, height / 2 + wallWidth / 2, width, wallWidth, wallOps),
@@ -81,7 +83,7 @@ window.setup = () => {
   Composite.add(engine.world, [...bodies, ...walls]);
 
   frameRate(120);
-  pixelDensity(4);
+  pixelDensity(2);
 };
 
 let myFrameRate = 120;
@@ -115,12 +117,16 @@ window.draw = () => {
 
   // Compute, update according to timestep
   if (frameCount > 1) {
-    Engine.update(engine, (Date.now() - lastUpdated) * 2);
+    if (recording) {
+      Engine.update(engine, Date.now() - lastUpdated);
+    } else {
+      Engine.update(engine);
+    }
   }
   lastUpdated = Date.now();
 
   // Draw
-  if (recording || frameCount % 30 === 1) {
+  if (recording || frameCount % 10 === 1) {
     background(240);
     translate(width / 2, height / 2);
     strokeWeight(0.7);
