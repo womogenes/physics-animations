@@ -1,7 +1,7 @@
 // module aliases
 const { Engine, Body, Bodies, Composite, Vector } = Matter;
 
-const engine = Engine.create({ gravity: { x: 0, y: 0.15 } });
+const engine = Engine.create({ gravity: { x: 0, y: 0.05 } });
 
 // Logo specifics
 const colors = [
@@ -28,7 +28,7 @@ window.setup = () => {
 
   // Create bodies
   let scaleFactor = 50;
-  let n = 32; // Subdivisions
+  let n = 64; // Subdivisions
   let e1 = Vector.mult(Vector.create(1 / n, sqrt3 / n), scaleFactor);
   let e2 = Vector.mult(Vector.create(-1 / n, sqrt3 / n), scaleFactor);
 
@@ -81,11 +81,11 @@ window.setup = () => {
   Composite.add(engine.world, [...bodies, ...walls]);
 
   frameRate(120);
-  pixelDensity(2);
+  pixelDensity(4);
 };
 
 let myFrameRate = 120;
-let endFrame = myFrameRate * 15;
+let endFrame = myFrameRate * 120;
 let startTime;
 let recording = true;
 
@@ -94,12 +94,16 @@ let lastUpdated = null;
 window.draw = () => {
   if (frameCount === 1) {
     if (recording) {
-      capturer = CCapture({ framerate: myFrameRate, format: 'webm' });
+      capturer = CCapture({
+        framerate: myFrameRate,
+        format: 'webm',
+        autoSaveTime: 10,
+      });
       capturer.start();
     }
     startTime = new Date();
   }
-  if (frameCount === endFrame) {
+  /* if (frameCount === endFrame) {
     if (recording) {
       capturer.stop();
       capturer.save();
@@ -107,19 +111,19 @@ window.draw = () => {
     console.log('animation stopped');
     noLoop();
     return;
-  }
+  } */
 
   // Compute, update according to timestep
-  if (frameCount > myFrameRate * 0.2) {
+  if (frameCount > 1) {
     Engine.update(engine, (Date.now() - lastUpdated) * 2);
   }
   lastUpdated = Date.now();
 
   // Draw
-  if (frameCount % (recording ? 1 : 30) === 0) {
+  if (recording || frameCount % 30 === 1) {
     background(240);
     translate(width / 2, height / 2);
-    strokeWeight(0.8);
+    strokeWeight(0.7);
 
     bodies.forEach((body, i) => {
       fill(body.render.fillStyle);
