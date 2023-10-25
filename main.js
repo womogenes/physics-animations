@@ -1,7 +1,7 @@
 // module aliases
 const { Engine, Body, Bodies, Composite, Vector } = Matter;
 
-const engine = Engine.create({ gravity: { x: 0, y: 0.03 } });
+const engine = Engine.create({ gravity: { x: 0, y: 0.1 } });
 
 // Logo specifics
 const colors = [
@@ -20,6 +20,9 @@ let canvas;
 
 let bodies = [];
 
+let scaleFactor = 50;
+let n = 256; // Subdivisions
+
 // Rendering
 window.setup = () => {
   let canvasSize = 600;
@@ -27,8 +30,6 @@ window.setup = () => {
   canvas = document.querySelector('canvas');
 
   // Create bodies
-  let scaleFactor = 50;
-  let n = 64; // Subdivisions
   let e1 = Vector.mult(Vector.create(1 / n, sqrt3 / n), scaleFactor);
   let e2 = Vector.mult(Vector.create(-1 / n, sqrt3 / n), scaleFactor);
 
@@ -42,27 +43,23 @@ window.setup = () => {
     for (let x = 0; x < n; x++) {
       for (let y = 0; y < n; y++) {
         // Two equilateral triangles
-        for (let j = 0; j < 2; j++) {
-          let pos = Vector.rotate(
-            Vector.add(
-              Vector.add(Vector.mult(e1, x), Vector.mult(e2, y)),
-              Vector.mult(
-                Vector.create(0, j == 0 ? (2 / 3) * sqrt3 : (4 / 3) * sqrt3),
-                scaleFactor / n
-              )
-            ),
-            (2 * Math.PI * i) / 6 + Math.PI
-          );
-          let body = Bodies.fromVertices(pos.x, pos.y, vertices, {
-            frictionAir: 0,
-            friction: 0,
-            restitution: 0.95,
-            mass: (i + 6) * 1e-4,
-            render: { fillStyle: colors[i] },
-          });
-          Body.setAngle(body, 2 * Math.PI * (i / 6) + Math.PI * j);
-          bodies.push(body);
-        }
+        let pos = Vector.rotate(
+          Vector.add(
+            Vector.add(Vector.mult(e1, x), Vector.mult(e2, y)),
+            Vector.create(0, (sqrt3 * scaleFactor) / n)
+          ),
+          (2 * Math.PI * i) / 6 + Math.PI
+        );
+        let rad = (scaleFactor / n) * 1;
+        let body = Bodies.circle(pos.x, pos.y, rad, {
+          frictionAir: 0,
+          friction: 0,
+          restitution: 0.95,
+          mass: (i + 6) * 1e-4,
+          render: { fillStyle: colors[i], radius: rad },
+        });
+        // Body.setAngle(body, 2 * Math.PI * (i / 6) + Math.PI * 1);
+        bodies.push(body);
       }
     }
   }
@@ -120,13 +117,13 @@ window.draw = () => {
     if (recording) {
       Engine.update(engine, Date.now() - lastUpdated);
     } else {
-      Engine.update(engine);
+      Engine.update(engine, 1000 / myFrameRate);
     }
   }
   lastUpdated = Date.now();
 
   // Draw
-  if (recording || frameCount % 10 === 1) {
+  if (recording || true || frameCount % 10 === 1) {
     background(240);
     translate(width / 2, height / 2);
     strokeWeight(0.7);
@@ -134,11 +131,7 @@ window.draw = () => {
     bodies.forEach((body, i) => {
       fill(body.render.fillStyle);
       stroke(body.render.fillStyle);
-      beginShape();
-      for (let v of body.vertices) {
-        vertex(v.x, v.y);
-      }
-      endShape(CLOSE);
+      ellipse(body.position.x, body.position.y, body.render.radius * 2);
     });
   }
 
