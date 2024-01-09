@@ -1,7 +1,7 @@
 // module aliases
 const { Engine, Body, Bodies, Composite, Vector } = Matter;
 
-const engine = Engine.create({ gravity: { x: 0, y: 0.03 } });
+const engine = Engine.create({ gravity: { x: 0, y: 0.01 } });
 
 // Logo specifics
 const colors = [
@@ -20,49 +20,37 @@ let canvas;
 
 let bodies = [];
 
+let img;
+window.preload = () => {
+  img = loadImage('image.png');
+};
+
 // Rendering
 window.setup = () => {
   let canvasSize = 600;
   createCanvas(canvasSize, canvasSize);
   canvas = document.querySelector('canvas');
 
-  // Create bodies
-  let scaleFactor = 50;
-  let n = 64; // Subdivisions
-  let e1 = Vector.mult(Vector.create(1 / n, sqrt3 / n), scaleFactor);
-  let e2 = Vector.mult(Vector.create(-1 / n, sqrt3 / n), scaleFactor);
+  let n = 20;
+  let squareSize = Math.floor(Math.min(img.width, img.height) / 100);
+  let scaleFactor = width / Math.max(img.width, img.height);
 
-  let vertices = [
-    [-1, 0],
-    [0, sqrt3],
-    [1, 0],
-  ].map(([x, y]) => ({ x: (x * scaleFactor) / n, y: (y * scaleFactor) / n }));
-
-  for (let i = 0; i < 6; i++) {
-    for (let x = 0; x < n; x++) {
-      for (let y = 0; y < n; y++) {
-        // Two equilateral triangles
-        for (let j = 0; j < 2; j++) {
-          let pos = Vector.rotate(
-            Vector.add(
-              Vector.add(Vector.mult(e1, x), Vector.mult(e2, y)),
-              Vector.mult(
-                Vector.create(0, j == 0 ? (2 / 3) * sqrt3 : (4 / 3) * sqrt3),
-                scaleFactor / n
-              )
-            ),
-            (2 * Math.PI * i) / 6 + Math.PI
-          );
-          let body = Bodies.fromVertices(pos.x, pos.y, vertices, {
+  for (let i = 0; i < img.width; i += squareSize) {
+    for (let j = 0; j < img.height; j += squareSize) {
+      if (img.get(i, j)[3] != 0) {
+        let body = Bodies.rectangle(
+          (i - img.width / 2) * scaleFactor,
+          (j - img.height / 2) * scaleFactor,
+          squareSize * scaleFactor,
+          squareSize * scaleFactor,
+          {
             frictionAir: 0,
             friction: 0,
             restitution: 0.95,
-            mass: (i + 6) * 1e-4,
-            render: { fillStyle: colors[i] },
-          });
-          Body.setAngle(body, 2 * Math.PI * (i / 6) + Math.PI * j);
-          bodies.push(body);
-        }
+            render: { fillStyle: img.get(i, j) },
+          }
+        );
+        bodies.push(body);
       }
     }
   }
@@ -86,10 +74,10 @@ window.setup = () => {
   pixelDensity(2);
 };
 
-let myFrameRate = 120;
+let myFrameRate = 60;
 let endFrame = myFrameRate * 120;
 let startTime;
-let recording = true;
+let recording = false;
 
 let lastUpdated = null;
 
@@ -126,7 +114,8 @@ window.draw = () => {
   lastUpdated = Date.now();
 
   // Draw
-  if (recording || frameCount % 10 === 1) {
+  if (recording || frameCount % 30 === 1) {
+    // clear();
     background(240);
     translate(width / 2, height / 2);
     strokeWeight(0.7);
